@@ -1,7 +1,13 @@
 {
-  "_aide": "Liste des conseillers autorisés. Pour donner l'accès : ajouter une entrée (code en minuscules). Pour COUPER l'accès : supprimer l'entrée OU mettre une date 'expire' passée. Format date : AAAA-MM-JJ. Republier le fichier (push) pour appliquer.",
+  "_aide": "Liste des conseillers autorisés. Pour donner l'accès : ajouter une entrée (code = prénom en minuscules). Pour COUPER l'accès : supprimer l'entrée OU mettre une date 'expire' passée. Format date : AAAA-MM-JJ. Republier le fichier (Commit changes) pour appliquer.",
   "agents": {
-    "frederic": { "nom": "Frédéric Rei", "expire": "2026-09-05" },
-    "jean": { "nom": "Jean", "expire": "2026-09-05" }
+    "frederic": {
+      "nom": "Frédéric Rei",
+      "expire": "2035-09-05"
+    },
+    "jean": {
+      "nom": "Jean Glodas",
+      "expire": "2035-09-05"
+    }
   }
 }
