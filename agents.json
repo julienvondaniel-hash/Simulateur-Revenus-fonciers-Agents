@@ -1,8 +1,8 @@
 {
   "_aide": "Liste des conseillers autorisés. Pour donner l'accès : ajouter une entrée (code = prénom en minuscules). Pour COUPER l'accès : supprimer l'entrée OU mettre une date 'expire' passée. Format date : AAAA-MM-JJ. Republier le fichier (Commit changes) pour appliquer.",
   "agents": {
-    "frederic": {
-      "nom": "Frédéric Rei",
+    "ACM-ML": {
+      "nom": "ACM-ML",
       "expire": "2035-09-05"
     },
     "jean": {
