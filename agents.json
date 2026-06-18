@@ -1,8 +1,8 @@
 {
   "_aide": "La clé (à gauche) est le code à taper : minuscules, sans espace. 'nom' = ce qui s'affiche. 'expire' = AAAA-MM-JJ.",
   "agents": {
-    "acm-ml":     { "nom": "ACM-ML",            "expire": "2035-09-05" },
-    "florence":   { "nom": "Florence Triollet", "expire": "2035-09-05" },
+    "ACM-ML":     { "nom": "ACM-ML",            "expire": "2035-09-05" },
+    "FlorenceT":   { "nom": "Florence Triollet", "expire": "2035-09-05" },
     "jean":       { "nom": "Jean Glodas",        "expire": "2035-09-05" }
   }
 }
