@@ -1,9 +1,0 @@
-{
-  "_aide": "La clé (à gauche) est le CODE à taper par le conseiller. La casse et les espaces sont ignorés, mais le plus simple est de la mettre en minuscules sans espace. 'nom' = ce qui s'affiche sur la page et les PDF. 'expire' = date de fin d'accès (AAAA-MM-JJ). Pour COUPER un accès : supprimer la ligne OU mettre une date passée. Republier (Commit changes) pour appliquer.",
-  "agents": {
-    "frederic":  { "nom": "Frédéric Rei",       "expire": "2026-09-05" },
-    "acm":       { "nom": "ACM-ML",              "expire": "2035-09-05" },
-    "florencet": { "nom": "Florence Triollet",   "expire": "2035-09-05" },
-    "jean":      { "nom": "Jean Glodas",         "expire": "2035-09-05" }
-  }
-}
