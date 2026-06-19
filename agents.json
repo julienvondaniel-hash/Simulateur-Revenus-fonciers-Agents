@@ -1,9 +1,0 @@
-{
-  "_aide": "Partenaires autorises. La clé = identifiant a taper (casse/espaces ignores). 'hash' = empreinte SHA-256 de identifiant+\":\"+motdepasse (le mot de passe n'est jamais stocke en clair). 'expire' = date de fin d'acces AAAA-MM-JJ. Pour COUPER un acces : supprimer la ligne ou mettre une date passee. Pour changer un mot de passe ou ajouter un partenaire, demandez la regeneration du hash. Republier (Commit changes) pour appliquer.",
-  "agents": {
-    "frederic":  { "nom": "Frédéric Rei",     "hash": "b94ada2a53544970aa4b4e1a92b1202c66e95b4c158ad267f398946a911d9518", "expire": "2026-09-05" },
-    "acm":       { "nom": "ACM-ML",            "hash": "f94bc3463dcbbc641c342e0ac0151b9befcf678a5670bd63a69d6aa787132f9f", "expire": "2035-09-05" },
-    "florencet": { "nom": "Florence Triollet", "hash": "b66eff3e46dfe640232ca88ca99eccd7e7fe3c35c49105a78cc475842c8e3d31", "expire": "2035-09-05" },
-    "jean":      { "nom": "Jean Glodas",       "hash": "d569c38ba56eede736c884c801d2b04f447496cfc09da7e521ad2181483c443d", "expire": "2035-09-05" }
-  }
-}
