@@ -47,6 +47,10 @@
   main{max-width:1280px;margin:0 auto;padding:26px 18px 60px}
   .panel{display:none}
   .panel.active{display:block;animation:fade .25s ease}
+  .rf-subtabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+  .rf-subtabs button{appearance:none;border:1.5px solid var(--teal);background:#fff;color:var(--teal);
+    cursor:pointer;font-size:.92rem;font-weight:600;padding:9px 18px;border-radius:999px;transition:.15s}
+  .rf-subtabs button.active{background:var(--teal);color:#fff}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   .grid{display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start}
   @media(max-width:900px){.grid{grid-template-columns:1fr}}
@@ -527,6 +531,11 @@
 
 <!-- ================= REVENUS FONCIERS ================= -->
   <section class="panel" id="panel-rf">
+    <div class="rf-subtabs">
+      <button id="rfst-new" class="active" type="button">Nouveau projet</button>
+      <button id="rfst-cur" type="button">Projet de vente</button>
+    </div>
+    <div id="rf-new">
     <p class="intro">Imposition d'un bien loué nu au <b>régime réel des revenus fonciers</b> (déclaration 2044) :
       revenu foncier net, impôt sur le revenu (TMI) + prélèvements sociaux, résultat net et rentabilités.</p>
     <div class="grid">
@@ -571,6 +580,40 @@
           <div class="card-body"><div class="tbl-wrap" style="max-height:none"><table class="tbl" id="rf-proj"></table></div></div></div>
       </div>
     </div>
+    </div><!-- /#rf-new -->
+    <div id="rf-cur" style="display:none">
+      <p class="intro">Bien <b>déjà détenu</b> : estimez la <b>plus-value</b> à la revente et son imposition selon le
+        <b>régime des particuliers</b> (19 % d'IR + 17,2 % de prélèvements sociaux, abattements pour durée de détention,
+        surtaxe au-delà de 50 000 € de plus-value imposable).</p>
+      <div class="grid">
+        <div class="card">
+          <h2><span class="dot"></span>Paramètres</h2>
+          <div class="card-body">
+            <div class="form-section"><h3>Acquisition</h3>
+              <div class="field has-unit"><label>Prix d'acquisition</label><div class="ig"><input id="pv_achat" type="number" value="300000"><span class="unit">€</span></div></div>
+              <div class="field"><label>Frais d'acquisition</label><select id="pv_fraismode"><option value="forfait" selected>Forfait 7,5 %</option><option value="reel">Montant réel</option></select></div>
+              <div class="field has-unit" id="pv_fraisreel_field" style="display:none"><label>Frais d'acquisition réels</label><div class="ig"><input id="pv_fraisreel" type="number" value="22500"><span class="unit">€</span></div></div>
+              <div class="field"><label>Travaux</label><select id="pv_travmode"><option value="forfait" selected>Forfait 15 % (si &gt; 5 ans)</option><option value="reel">Montant réel (factures)</option><option value="aucun">Aucun</option></select></div>
+              <div class="field has-unit" id="pv_travreel_field" style="display:none"><label>Travaux réels</label><div class="ig"><input id="pv_travreel" type="number" value="0"><span class="unit">€</span></div></div>
+            </div>
+            <div class="form-section"><h3>Cession</h3>
+              <div class="field has-unit"><label>Durée de détention</label><div class="ig"><input id="pv_duree" type="number" value="12"><span class="unit">ans</span></div></div>
+              <div class="field has-unit"><label>Prix de cession</label><div class="ig"><input id="pv_vente" type="number" value="450000"><span class="unit">€</span></div></div>
+              <div class="field has-unit"><label>Frais de cession (agence, diagnostics)</label><div class="ig"><input id="pv_fraisvente" type="number" value="0"><span class="unit">€</span></div></div>
+              <div class="field has-unit"><label>Capital restant dû</label><div class="ig"><input id="pv_crd" type="number" value="0"><span class="unit">€</span></div><div class="hint">Solde du crédit remboursé à la vente</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:24px">
+          <div class="card"><h2><span class="dot"></span>Indicateurs clés</h2>
+            <div class="card-body"><div class="kpis" id="pv-kpis"></div></div></div>
+          <div class="card"><h2><span class="dot"></span>Comprendre la plus-value</h2>
+            <div class="card-body"><div id="pv-note" style="font-size:.9rem;line-height:1.6;color:#33484c"></div></div></div>
+          <div class="card"><h2><span class="dot"></span>Détail du calcul</h2>
+            <div class="card-body"><div class="tbl-wrap" style="max-height:none"><table class="tbl" id="pv-table"></table></div></div></div>
+        </div>
+      </div>
+    </div><!-- /#rf-cur -->
   </section>
 
   <!-- ================= COMPARATIF SCI ================= -->
@@ -1295,6 +1338,83 @@ function renderRF(){
   $('rf-proj').innerHTML=`<thead><tr><th>Année</th><th>Loyers</th><th>− Charges</th><th>− Crédit</th><th>− Impôt</th><th>= Cash-flow</th></tr></thead><tbody>${body}</tbody>`;
 }
 
+/* ---- Projet en cours : plus-value immobilière (régime des particuliers) ---- */
+function abattIR(y){ if(y>=22)return 1; if(y<6)return 0; return Math.min(1,(y-5)*0.06); }       // 6 %/an dès la 6e année, exonération à 22 ans
+function abattPS(y){ if(y>=30)return 1; if(y<6)return 0;                                          // 1,65 %/an (6-21), 1,60 % (22), 9 %/an (23-30)
+  let a=(Math.min(y,21)-5)*0.0165; if(y>=22)a+=0.016; if(y>22)a+=(Math.min(y,30)-22)*0.09; return Math.min(1,a); }
+function surtaxePV(pv){ // taxe sur les plus-values immobilières élevées (> 50 000 €)
+  if(pv<=50000)return 0;
+  if(pv<=60000)return 0.02*pv-(60000-pv)/20;
+  if(pv<=100000)return 0.02*pv;
+  if(pv<=110000)return 0.03*pv-(110000-pv)/10;
+  if(pv<=150000)return 0.03*pv;
+  if(pv<=160000)return 0.04*pv-(160000-pv)*0.15;
+  if(pv<=200000)return 0.04*pv;
+  if(pv<=210000)return 0.05*pv-(210000-pv)*0.20;
+  if(pv<=250000)return 0.05*pv;
+  if(pv<=260000)return 0.06*pv-(260000-pv)*0.25;
+  return 0.06*pv;
+}
+function calcPV(p){
+  const fraisAcq = p.fraisMode==='reel' ? p.fraisReel : p.achat*0.075;
+  let travaux=0;
+  if(p.travMode==='reel') travaux=p.travReel; else if(p.travMode==='forfait') travaux=(p.duree>5?p.achat*0.15:0);
+  const prixAcqMajore = p.achat+fraisAcq+travaux;
+  const prixCessionNet = p.vente-p.fraisVente;
+  const pvBrute = prixCessionNet-prixAcqMajore;
+  const aIR=abattIR(p.duree), aPS=abattPS(p.duree);
+  const pvIR = pvBrute>0?pvBrute*(1-aIR):0, pvPS = pvBrute>0?pvBrute*(1-aPS):0;
+  const ir=pvIR*0.19, ps=pvPS*0.172, surtaxe=pvBrute>0?surtaxePV(pvIR):0;
+  const impotTotal=ir+ps+surtaxe;
+  const net=prixCessionNet-impotTotal-p.crd;
+  return{fraisAcq,travaux,prixAcqMajore,prixCessionNet,pvBrute,aIR,aPS,pvIR,pvPS,ir,ps,surtaxe,impotTotal,
+    net,tauxEff:pvBrute>0?impotTotal/pvBrute:0,exoIR:p.duree>=22,exoPS:p.duree>=30};
+}
+function syncPVfields(){
+  $('pv_fraisreel_field').style.display = $('pv_fraismode').value==='reel'?'':'none';
+  $('pv_travreel_field').style.display  = $('pv_travmode').value==='reel'?'':'none';
+}
+function renderPV(){
+  syncPVfields();
+  const r=calcPV({achat:num('pv_achat'),fraisMode:$('pv_fraismode').value,fraisReel:num('pv_fraisreel'),
+    travMode:$('pv_travmode').value,travReel:num('pv_travreel'),duree:num('pv_duree'),
+    vente:num('pv_vente'),fraisVente:num('pv_fraisvente'),crd:num('pv_crd')});
+  $('pv-kpis').innerHTML=`
+    <div class="kpi accent"><div class="l">Capital généré par la revente</div><div class="v ${r.net>=0?'':'neg'}">${eur0(r.net)}</div><div class="s">après impôt &amp; remboursement du crédit</div></div>
+    <div class="kpi"><div class="l">Plus-value brute</div><div class="v ${r.pvBrute>=0?'pos':'neg'}">${eur0(r.pvBrute)}</div><div class="s">prix net − prix d'acquisition majoré</div></div>
+    <div class="kpi"><div class="l">Impôt total sur la plus-value</div><div class="v neg">${eur0(r.impotTotal)}</div><div class="s">IR + PS + surtaxe</div></div>
+    <div class="kpi"><div class="l">Taux d'imposition effectif</div><div class="v">${pct(r.tauxEff)}</div><div class="s">impôt / plus-value brute</div></div>
+    <div class="kpi"><div class="l">Abattement IR</div><div class="v">${pct(r.aIR)}</div><div class="s">${r.exoIR?'exonéré (≥ 22 ans)':'durée de détention'}</div></div>
+    <div class="kpi"><div class="l">Abattement prélèv. sociaux</div><div class="v">${pct(r.aPS)}</div><div class="s">${r.exoPS?'exonéré (≥ 30 ans)':'durée de détention'}</div></div>`;
+  $('pv-note').innerHTML=`
+    <p style="margin:0 0 8px">La <b>plus-value immobilière</b> est la différence entre le <b>prix de vente</b> (net des frais)
+    et le <b>prix d'acquisition majoré</b> des frais (réels ou forfait 7,5 %) et des travaux (réels ou forfait 15 % si
+    le bien est détenu depuis plus de 5 ans).</p>
+    <p style="margin:0 0 8px">Elle est imposée à <b>19 % (impôt sur le revenu)</b> + <b>17,2 % (prélèvements sociaux)</b>,
+    mais des <b>abattements pour durée de détention</b> réduisent la base : exonération d'IR à <b>22 ans</b> et de
+    prélèvements sociaux à <b>30 ans</b>. Une <b>surtaxe</b> de 2 à 6 % s'ajoute au-delà de 50 000 € de plus-value imposable.</p>
+    <p style="margin:0;color:#7a8a8d;font-size:.82rem">Estimation indicative (résidence non principale). Cas particuliers
+    (exonérations, abattements exceptionnels, non-résidents…) non couverts. Outil d'aide à la décision.</p>`;
+  $('pv-table').innerHTML=`<tbody>
+    <tr><td>Prix de cession</td><td>${eur0(r.prixCessionNet+num('pv_fraisvente'))}</td></tr>
+    <tr><td>− Frais de cession</td><td class="neg">${eur0(-num('pv_fraisvente'))}</td></tr>
+    <tr style="font-weight:700;background:var(--teal-xl)"><td>= Prix de cession net</td><td>${eur0(r.prixCessionNet)}</td></tr>
+    <tr><td>Prix d'acquisition</td><td>${eur0(num('pv_achat'))}</td></tr>
+    <tr><td>+ Frais d'acquisition</td><td>${eur0(r.fraisAcq)}</td></tr>
+    <tr><td>+ Travaux</td><td>${eur0(r.travaux)}</td></tr>
+    <tr style="font-weight:700;background:var(--teal-xl)"><td>= Prix d'acquisition majoré</td><td>${eur0(r.prixAcqMajore)}</td></tr>
+    <tr style="font-weight:800;background:var(--teal-xl)"><td>= Plus-value brute</td><td class="${r.pvBrute>=0?'pos':'neg'}">${eur0(r.pvBrute)}</td></tr>
+    <tr><td>Base imposable IR (après abattement ${pct(r.aIR)})</td><td>${eur0(r.pvIR)}</td></tr>
+    <tr><td>− Impôt sur le revenu (19 %)</td><td class="neg">${eur0(-r.ir)}</td></tr>
+    <tr><td>Base imposable PS (après abattement ${pct(r.aPS)})</td><td>${eur0(r.pvPS)}</td></tr>
+    <tr><td>− Prélèvements sociaux (17,2 %)</td><td class="neg">${eur0(-r.ps)}</td></tr>
+    <tr><td>− Surtaxe (plus-values élevées)</td><td class="neg">${eur0(-r.surtaxe)}</td></tr>
+    <tr style="font-weight:700;background:var(--teal-xl)"><td>= Impôt total sur la plus-value</td><td class="neg">${eur0(-r.impotTotal)}</td></tr>
+    <tr><td>− Capital restant dû</td><td class="neg">${eur0(-num('pv_crd'))}</td></tr>
+    <tr style="font-weight:800;background:var(--teal-xl)"><td>= Capital généré par la revente</td><td class="${r.net>=0?'pos':'neg'}">${eur0(r.net)}</td></tr>
+  </tbody>`;
+}
+
 /* ---- Investissement locatif (TRI par régime fiscal) ---- */
 function syncLOCfields(){
   const reg=$('loc_regime').value;
@@ -1459,6 +1579,12 @@ bind(['sis_prix','sis_surf','sis_loyer','sis_irl','sis_reval','sis_emp','sis_tau
 bind(['sir_prix','sir_surf','sir_loyer','sir_irl','sir_reval','sir_emp','sir_taux','sir_assur','sir_duree','sir_tmi','sir_csg','sir_crl','sir_gest','sir_pnom2','sir_trav','sir_cnr','sir_infl','sir_gar','sir_fcrea','sir_fcompta','sir_pvtravaux','sir_taxe'],renderSIR);
 bind(['cmp_prix','cmp_surf','cmp_loyer','cmp_irl','cmp_reval','cmp_emp','cmp_taux','cmp_assur','cmp_duree','cmp_gest','cmp_pnom2','cmp_trav','cmp_cnr','cmp_infl','cmp_gar','cmp_fcrea','cmp_fcompta','cmp_isbas','cmp_ishaut','cmp_flat','cmp_amdur','cmp_tmi','cmp_csg','cmp_crl','cmp_isreduit','cmp_pvtravaux','cmp_taxe'],renderCMP);
 bind(['rf_valeur','rf_loyer','rf_taxe','rf_copro','rf_gestion','rf_travaux','rf_notaire','rf_emprunt','rf_taux','rf_assur','rf_dureecredit','rf_detention','rf_reval','rf_tmi','rf_ps'],renderRF);
+bind(['pv_achat','pv_fraismode','pv_fraisreel','pv_travmode','pv_travreel','pv_duree','pv_vente','pv_fraisvente','pv_crd'],renderPV);
+(function(){var n=$('rfst-new'),c=$('rfst-cur');
+  if(n&&c){function show(cur){n.classList.toggle('active',!cur);c.classList.toggle('active',cur);
+    $('rf-new').style.display=cur?'none':'';$('rf-cur').style.display=cur?'':'none';}
+    n.onclick=()=>show(false);c.onclick=()=>show(true);}
+})();
 bind(['loc_regime','loc_travaux','loc_travauxans','loc_autresrf','loc_invest','loc_surf','loc_capital','loc_taux','loc_duree','loc_adi','loc_rdt','loc_gestion','loc_pno','loc_forfait','loc_irl','loc_inflcharges','loc_tmi','loc_ps','loc_detention','loc_revalobien','loc_amortrate','loc_amortplaf','loc_taxe'],renderLOC);
 bind(['scpi_parts','scpi_rdt','scpi_index','scpi_reval','scpi_emp','scpi_taux','scpi_assur','scpi_duree','scpi_isbas','scpi_ishaut','scpi_flat','scpi_amdur','scpi_fa','scpi_infl','scpi_gar','scpi_fcrea','scpi_fcompta'],renderSCPI);
 document.querySelectorAll('#sis-divtoggle button').forEach(b=>b.onclick=()=>{
@@ -1487,6 +1613,7 @@ function collectPanel(tab){
     });
   });
   panel.querySelectorAll('.kpi').forEach(k=>{
+    if(k.offsetParent===null) return;            // KPI d'un sous-onglet masqué
     const l=k.querySelector('.l'),v=k.querySelector('.v'),s=k.querySelector('.s');
     if(l&&v) out.kpis.push([l.textContent.trim(),v.textContent.trim(),s?s.textContent.trim():'']);
   });
@@ -1554,8 +1681,9 @@ function prCell(txt){
   const pos=!neg&&/[€%]/.test(txt)&&!/—/.test(txt);
   return txt; // couleur gérée via classe au moment du rendu
 }
-function buildPrintHTML(tab){
+function buildPrintHTML(tab, titleOverride){
   const d=collectPanel(tab);
+  if(titleOverride) d.title=titleOverride;
   const now=new Date();
   const dateStr=now.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
   // Branding partenaire si renseigné (logo + coordonnées du conseiller), sinon HEXA par défaut
@@ -1612,9 +1740,9 @@ function buildPrintHTML(tab){
   h+=`<div class="pr-foot">© ${blockOrga} · Document indicatif, ne constitue pas un conseil personnalisé. Simulation propulsée par HEXA Patrimoine.</div>`;
   return h;
 }
-function exportPDF(tab){
+function exportPDF(tab, titleOverride){
   const pa=$('print-area');
-  pa.innerHTML=`<div id="pr-fit">${buildPrintHTML(tab)}</div>`;
+  pa.innerHTML=`<div id="pr-fit">${buildPrintHTML(tab, titleOverride)}</div>`;
   const fit=$('pr-fit');
   fit.style.transform='none';fit.style.width='';
   // mesure hors-écran à la largeur imprimable, puis réduit l'échelle si > 1 page A4
@@ -1626,7 +1754,7 @@ function exportPDF(tab){
     if(sc<1){fit.style.transform=`scale(${sc.toFixed(3)})`;fit.style.width=(100/sc).toFixed(2)+'%';
       // l'élément transformé garde sa boîte d'origine : on réduit la hauteur réservée
       pa.style.height=Math.ceil(fullH*sc)+'px';pa.style.overflow='hidden';}
-    const prevTitle=document.title; document.title='HEXA_'+(TAB_TITLE[tab]||tab);
+    const prevTitle=document.title; document.title='HEXA_'+(titleOverride||TAB_TITLE[tab]||tab);
     const cleanup=()=>{document.title=prevTitle;fit.style.transform='none';fit.style.width='';pa.style.height='';pa.style.overflow='';window.removeEventListener('afterprint',cleanup);};
     window.addEventListener('afterprint',cleanup);
     window.print();
@@ -1643,9 +1771,15 @@ Object.keys(TAB_TITLE).forEach(tab=>{
   const intro=panel.querySelector('.intro');
   if(intro) intro.after(bar); else panel.prepend(bar);
 });
-document.querySelectorAll('.btn-pdf').forEach(b=>b.onclick=()=>exportPDF(b.dataset.p));
+// Bouton dédié pour le sous-onglet "Projet de vente" (plus-value)
+(function(){const c=$('rf-cur'); if(!c) return;
+  const bar=document.createElement('div'); bar.className='exports';
+  bar.innerHTML=`<button class="btn-exp btn-pdf" data-p="rf" data-title="Projet de vente — Plus-value">${ICON_PDF}Export PDF</button>`;
+  const intro=c.querySelector('.intro'); if(intro) intro.after(bar); else c.prepend(bar);
+})();
+document.querySelectorAll('.btn-pdf').forEach(b=>b.onclick=()=>exportPDF(b.dataset.p, b.dataset.title||null));
 
-renderAVL();renderSIS();renderSIR();renderRF();renderLOC();renderCMP();renderSCPI();
+renderAVL();renderSIS();renderSIR();renderRF();renderPV();renderLOC();renderCMP();renderSCPI();
 </script>
 
 <style>
@@ -1746,7 +1880,7 @@ renderAVL();renderSIS();renderSIR();renderRF();renderLOC();renderCMP();renderSCP
       var res={}; document.querySelectorAll('#rf-kpis .kpi').forEach(function(k){
         var l=k.querySelector('.l'), v=k.querySelector('.v'); if(l&&v) res[l.textContent.trim()]=v.textContent.trim();
       });
-      sb.from('simulations').insert({partner_id:uid, type:'revenus_fonciers', params:params, resultats:res});
+      sb.from('simulations').insert({partner_id:uid, type:'revenus_fonciers', params:params, resultats:res}).then(function(){},function(){});
     }catch(_){}
   }
   function grant(profile, uid){
@@ -1809,7 +1943,7 @@ renderAVL();renderSIS();renderSIR();renderRF();renderLOC();renderCMP();renderSCP
   }
   function logout(){
     if(LOCAL){ try{sessionStorage.removeItem('hexa_rf_session');}catch(_){}; location.reload(); return; }
-    if(sb){ if(window.__uid) sb.from('access_logs').insert({partner_id:window.__uid, event:'logout'});
+    if(sb){ if(window.__uid) sb.from('access_logs').insert({partner_id:window.__uid, event:'logout'}).then(function(){},function(){});
       sb.auth.signOut().then(function(){location.reload();}); }
     else location.reload();
   }
@@ -1848,7 +1982,7 @@ renderAVL();renderSIS();renderSIR();renderRF();renderLOC();renderCMP();renderSCP
       if(r.error){ err.textContent="Identifiant ou mot de passe incorrect."; btn.disabled=false; return; }
       checkProfileAndGrant(r.data.user).then(function(res){
         if(res.err){ err.textContent=res.err; sb.auth.signOut(); btn.disabled=false; return; }
-        sb.from('access_logs').insert({partner_id:r.data.user.id, event:'login'});
+        sb.from('access_logs').insert({partner_id:r.data.user.id, event:'login'}).then(function(){},function(){});
         grant(res.profile, r.data.user.id);
       });
     });
@@ -1891,7 +2025,7 @@ renderAVL();renderSIS();renderSIR();renderRF();renderLOC();renderCMP();renderSCP
         if(u){
           checkProfileAndGrant(u).then(function(res){
             if(res.err){ i.textContent=res.err; }
-            else { sb.from('access_logs').insert({partner_id:u.id, event:'login', detail:'reset'}); grant(res.profile, u.id); }
+            else { sb.from('access_logs').insert({partner_id:u.id, event:'login', detail:'reset'}).then(function(){},function(){}); grant(res.profile, u.id); }
           });
         }
       });
@@ -1938,7 +2072,7 @@ renderAVL();renderSIS();renderSIR();renderRF();renderLOC();renderCMP();renderSCP
         if(r.data && r.data.session && r.data.user){
           checkProfileAndGrant(r.data.user).then(function(res){
             if(res.err){ i.textContent="Compte créé. "+res.err; }
-            else { sb.from('access_logs').insert({partner_id:r.data.user.id, event:'login', detail:'signup'}); grant(res.profile, r.data.user.id); }
+            else { sb.from('access_logs').insert({partner_id:r.data.user.id, event:'login', detail:'signup'}).then(function(){},function(){}); grant(res.profile, r.data.user.id); }
           });
         } else {
           i.textContent="Compte créé. Un e-mail de confirmation vient de vous être envoyé : cliquez sur le lien pour activer votre accès, puis connectez-vous.";
