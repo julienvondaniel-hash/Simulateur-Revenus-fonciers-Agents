@@ -1,0 +1,53 @@
+/ /Politique de confidentialité
+
+
+> Dernière mise à jour : [19/06/2026]
+
+## 1. Responsable du traitement
+
+Julien DANIEL - Seine Gestion Privée - 99982619100010 - Franchisé HEXA Patrimoine, 44 rue Jean Mermoz, 78600 Maisons-Laffitte 
+j.daniel@hexa-patrimoine.com — 06 58 80 36 30.
+
+
+## 2. Données traitées et finalités
+
+| Donnée | Finalité | Base légale | Conservation |
+|---|---|---|---|
+| E-mail professionnel + mot de passe (haché) du **partenaire** | Authentifier l'accès au simulateur | Exécution de la relation partenaire / intérêt légitime | Durée de la relation + [12] mois |
+| **Journal d'accès** (connexions, date/heure, IP tronquée, navigateur) | Sécurité, contrôle des accès, statistiques d'usage | Intérêt légitime (sécurité, suivi partenaires) | 24 mois |
+| **Simulations anonymes** (montants saisis, résultats) | Amélioration de l'outil, suivi d'activité | Intérêt légitime | 24 mois |
+
+> Le simulateur ne collecte **aucune donnée nominative de prospect** : seuls des
+> montants anonymes sont enregistrés. Les partenaires s'engagent à ne pas y
+> saisir de données identifiant une personne.
+
+## 3. Destinataires
+
+- HEXA Patrimoine (administration de l'outil).
+- Sous-traitants techniques : **Vercel** (hébergement applicatif) et **Supabase**
+  (base de données / authentification), agissant sur instruction de HEXA, dans
+  l'Union européenne. [Confirmer la région UE et les DPA.]
+
+## 4. Transferts hors UE
+
+Les données sont stockées dans l'Union Européeenne.
+
+## 5. Sécurité
+
+- Mots de passe hachés (Supabase Auth).
+- Cloisonnement des données par partenaire (sécurité au niveau ligne — RLS).
+- Accès administrateur restreint.
+
+## 6. Vos droits
+
+Conformément au RGPD, vous disposez des droits d'accès, de rectification,
+d'effacement, de limitation et d'opposition. Pour les exercer :
+**j.daniel@hexa-patrimoine.com**. Réclamation possible auprès de la **CNIL**
+(www.cnil.fr).
+
+## 7. Cookies
+
+L'application utilise un **cookie de session** strictement nécessaire à
+l'authentification (pas de cookie publicitaire ni de traçage tiers). [À confirmer
+si un bandeau cookies est requis ; un cookie strictement nécessaire est en
+principe dispensé de consentement.]
