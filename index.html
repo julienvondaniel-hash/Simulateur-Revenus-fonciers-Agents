@@ -962,37 +962,50 @@ function calcScpiIs(p){
 }
 function calcRF(p){
   const valeur=p.valeur, loyers=p.loyerMensuel*12;
-  // Charges déductibles annuelles (hors crédit), supposées fixes
+  // Charges déductibles annuelles hors intérêts (supposées constantes)
   const flatCharges=p.taxe+p.copro+p.gestion+p.travaux;
   const emprunte=Math.max(0,p.emprunte||0), dureeCr=Math.max(1,p.dureeCredit||1);
   const sch=buildSchedule(emprunte,p.tauxCredit,dureeCr,p.tauxAssur,'Montant initial',emprunte);
   const fraisNotaire=valeur*(p.notaireRate||0), apport=valeur+fraisNotaire-emprunte;
-  const N=Math.max(1,Math.round(p.detention||1)), taxRate=p.tmi+p.ps;
+  const N=Math.max(1,Math.round(p.detention||1)), tmi=p.tmi, ps=p.ps;
   const mensualite=(emprunte>0?sch.monthly:0)+(emprunte>0?p.tauxAssur*emprunte/12:0);
-  // Plus-value des particuliers à la revente (même barème que l'onglet SCI à l'IR)
-  function pvTax(prixRevente,yr){
-    const base=valeur*(1+0.075+(yr>5?0.15:0)); const S=Math.max(0,prixRevente-base); let T,U;
-    if(yr>=22){T=0;U=Math.max(0,(1-0.0165*21-0.016-0.09*3)*0.172*S);}
-    else{T=Math.max(0,(1-0.06*(yr-6))*0.19*S);U=Math.max(0,(1-0.0165*(yr-6))*0.19*S);}
-    return T+U;
+  // Plus-value des particuliers à la revente — barème EXACT (identique au module « Projet de vente ») :
+  // 19 % IR + 17,2 % PS, abattements pour durée de détention + surtaxe au-delà de 50 000 €.
+  function pvTaxExact(prixRevente,yr){
+    const base=valeur*(1+0.075+(yr>5?0.15:0)), S=Math.max(0,prixRevente-base);
+    const pvIR=S*(1-abattIR(yr)), pvPS=S*(1-abattPS(yr));
+    return pvIR*0.19 + pvPS*0.172 + surtaxePV(pvIR);
   }
-  const rows=[], flows=[]; let cumCF=0, revente=0, crd=0, pv=0, netSale=0;
+  const rows=[], flows=[]; let cumCF=0, revente=0, crd=0, pv=0, netSale=0, carry=0;
   for(let k=1;k<=N;k++){
-    const intK=yearMonths(sch.intr,k), insK=yearMonths(sch.ins,k), deductK=intK+insK;
-    const resultat=loyers-flatCharges-deductK;          // résultat foncier (déficit possible)
-    const impot=resultat*taxRate;                        // déficit foncier → économie d'impôt
-    const creditK=yearMonths(sch.mens,k)+insK;           // annuité (capital+intérêts) + assurance
-    const cfOp=loyers-flatCharges-creditK-impot;         // cash-flow opérationnel
+    const intK=yearMonths(sch.intr,k), insK=yearMonths(sch.ins,k), deductK=intK+insK; // intérêts + assurance
+    const result=loyers-flatCharges-deductK;                 // résultat foncier brut de l'année
+    let ir=0, psy=0;
+    if(result>=0){
+      const taxable=Math.max(0,result-carry);                // imputation du déficit foncier reporté
+      carry=Math.max(0,carry-result);
+      ir=taxable*tmi; psy=taxable*ps;                        // IR + PS sur le revenu foncier net positif
+    } else {
+      // Déficit foncier : les intérêts ne sont déductibles qu'à hauteur des loyers ; le reste se reporte.
+      const interestDeficit=Math.max(0,deductK-loyers);                       // intérêts au-delà des loyers → report foncier
+      const otherDeficit=Math.max(0,flatCharges-Math.max(0,loyers-deductK));  // autres charges non absorbées
+      const globalDed=Math.min(10700,otherDeficit);                           // imputable sur le revenu global (TMI seul)
+      carry+=interestDeficit+(otherDeficit-globalDed);                        // excédent reporté sur revenus fonciers
+      ir=-globalDed*tmi; psy=0;                                               // économie d'impôt (aucun PS sur un déficit)
+    }
+    const impot=ir+psy;
+    const creditK=yearMonths(sch.mens,k)+insK;               // annuité (capital+intérêts) + assurance
+    const cfOp=loyers-flatCharges-creditK-impot;             // cash-flow opérationnel
     let cf=cfOp;
-    if(k===1) cf+= -(valeur+fraisNotaire)+emprunte;      // apport injecté en année 1 (convention TRI)
-    if(k===N){ revente=valeur*Math.pow(1+(p.revalBien||0),N); pv=pvTax(revente,N);
+    if(k===1) cf+= -(valeur+fraisNotaire)+emprunte;          // apport injecté en année 1 (convention TRI)
+    if(k===N){ revente=valeur*Math.pow(1+(p.revalBien||0),N); pv=pvTaxExact(revente,N);
       crd=(N*12+1<=301?(sch.crd[N*12+1]||0):0); netSale=(revente-pv)-crd; cf+=netSale; }
     cumCF+=cf; flows.push(cf);
-    rows.push({k,loyers,charges:flatCharges,deduct:deductK,credit:creditK,resultat,impot,cfOp,cf});
+    rows.push({k,loyers,charges:flatCharges,deduct:deductK,credit:creditK,resultat:result,ir,ps:psy,impot,cfOp,cf});
   }
   const dates=yearDates(N), tri=xirr(flows.map((v,i)=>({d:dates[i],v})));
-  const r1=rows[0], interets=r1.deduct, rf=r1.resultat, ir=rf*p.tmi, ps=rf*p.ps, totImp=r1.impot, net=rf-totImp;
-  return{loyers,charges:flatCharges,interets,rf,ir,ps,totImp,net,
+  const r1=rows[0], interets=r1.deduct, rf=r1.resultat, totImp=r1.impot, net=rf-totImp;
+  return{loyers,charges:flatCharges,interets,rf,ir:r1.ir,ps:r1.ps,totImp,net,
     rentaBrute:loyers/valeur, rentaNette:net/valeur,
     emprunte,apport,fraisNotaire,mensualite,N,tri,rows,cashAn1:r1.cfOp,
     revente,pvTax:pv,crdFinal:crd,netSale,gainTotal:cumCF};
@@ -1314,9 +1327,11 @@ function renderRF(){
     avez réellement immobilisé « travaille » à ${pct(r.tri)} par an. On le compare au rendement d'autres placements
     (livret, assurance-vie, SCPI…) : si le TRI dépasse le coût du crédit et le taux sans risque,
     <b>l'effet de levier joue en votre faveur</b>.</p>
-    <p style="margin:0;color:#7a8a8d;font-size:.82rem">Hypothèses : loyers et charges supposés fixes ; impôt foncier au
-    taux TMI + prélèvements sociaux (un déficit foncier génère une économie d'impôt) ; plus-value selon le régime des
-    particuliers (abattements pour durée de détention). Outil d'aide à la décision.</p>`;
+    <p style="margin:0;color:#7a8a8d;font-size:.82rem">Hypothèses : loyers et charges supposés constants ; revenu foncier
+    positif imposé à votre TMI + 17,2 % de prélèvements sociaux ; un déficit foncier est imputé à votre TMI sur le revenu
+    global (plafond 10 700 €/an, la part liée aux intérêts et l'excédent étant reportés sur les revenus fonciers) ;
+    plus-value selon le régime des particuliers (abattements pour durée de détention + surtaxe). Outil pédagogique, ne
+    constitue pas un conseil.</p>`;
   $('rf-table').innerHTML=`<tbody>
     <tr><td>Loyers bruts (annuels)</td><td>${eur(r.loyers)}</td></tr>
     <tr><td>− Charges déductibles (taxe, copro, gestion, travaux)</td><td class="neg">${eur0(-r.charges)}</td></tr>
