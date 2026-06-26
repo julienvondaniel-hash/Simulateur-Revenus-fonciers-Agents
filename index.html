@@ -545,6 +545,7 @@
           <div class="form-section"><h3>Le bien</h3>
             <div class="field has-unit"><label>Valeur de marché</label><div class="ig"><input id="rf_valeur" type="number" value="400000"><span class="unit">€</span></div></div>
             <div class="field has-unit"><label>Loyer mensuel (brut)</label><div class="ig"><input id="rf_loyer" type="number" value="1500"><span class="unit">€</span></div></div>
+            <div class="field has-unit"><label>Indexation des loyers (IRL)</label><div class="ig"><input id="rf_irl" type="number" step="0.1" value="2"><span class="unit">%</span></div><div class="hint">Revalorisation annuelle du loyer</div></div>
           </div>
           <div class="form-section"><h3>Charges annuelles</h3>
             <div class="field has-unit"><label>Taxe foncière</label><div class="ig"><input id="rf_taxe" type="number" value="500"><span class="unit">€</span></div></div>
@@ -961,7 +962,7 @@ function calcScpiIs(p){
   return res;
 }
 function calcRF(p){
-  const valeur=p.valeur, loyers=p.loyerMensuel*12;
+  const valeur=p.valeur, loyers=p.loyerMensuel*12, irl=p.irl||0;
   // Charges déductibles annuelles hors intérêts (supposées constantes)
   const flatCharges=p.taxe+p.copro+p.gestion+p.travaux;
   const emprunte=Math.max(0,p.emprunte||0), dureeCr=Math.max(1,p.dureeCredit||1);
@@ -978,8 +979,9 @@ function calcRF(p){
   }
   const rows=[], flows=[]; let cumCF=0, revente=0, crd=0, pv=0, netSale=0, carry=0;
   for(let k=1;k<=N;k++){
+    const loyersK=loyers*Math.pow(1+irl,k-1);                // loyer indexé (IRL)
     const intK=yearMonths(sch.intr,k), insK=yearMonths(sch.ins,k), deductK=intK+insK; // intérêts + assurance
-    const result=loyers-flatCharges-deductK;                 // résultat foncier brut de l'année
+    const result=loyersK-flatCharges-deductK;                // résultat foncier brut de l'année
     let ir=0, psy=0;
     if(result>=0){
       const taxable=Math.max(0,result-carry);                // imputation du déficit foncier reporté
@@ -987,21 +989,21 @@ function calcRF(p){
       ir=taxable*tmi; psy=taxable*ps;                        // IR + PS sur le revenu foncier net positif
     } else {
       // Déficit foncier : les intérêts ne sont déductibles qu'à hauteur des loyers ; le reste se reporte.
-      const interestDeficit=Math.max(0,deductK-loyers);                       // intérêts au-delà des loyers → report foncier
-      const otherDeficit=Math.max(0,flatCharges-Math.max(0,loyers-deductK));  // autres charges non absorbées
-      const globalDed=Math.min(10700,otherDeficit);                           // imputable sur le revenu global (TMI seul)
-      carry+=interestDeficit+(otherDeficit-globalDed);                        // excédent reporté sur revenus fonciers
-      ir=-globalDed*tmi; psy=0;                                               // économie d'impôt (aucun PS sur un déficit)
+      const interestDeficit=Math.max(0,deductK-loyersK);                       // intérêts au-delà des loyers → report foncier
+      const otherDeficit=Math.max(0,flatCharges-Math.max(0,loyersK-deductK));  // autres charges non absorbées
+      const globalDed=Math.min(10700,otherDeficit);                            // imputable sur le revenu global (TMI seul)
+      carry+=interestDeficit+(otherDeficit-globalDed);                         // excédent reporté sur revenus fonciers
+      ir=-globalDed*tmi; psy=0;                                                // économie d'impôt (aucun PS sur un déficit)
     }
     const impot=ir+psy;
     const creditK=yearMonths(sch.mens,k)+insK;               // annuité (capital+intérêts) + assurance
-    const cfOp=loyers-flatCharges-creditK-impot;             // cash-flow opérationnel
+    const cfOp=loyersK-flatCharges-creditK-impot;            // cash-flow opérationnel
     let cf=cfOp;
     if(k===1) cf+= -(valeur+fraisNotaire)+emprunte;          // apport injecté en année 1 (convention TRI)
     if(k===N){ revente=valeur*Math.pow(1+(p.revalBien||0),N); pv=pvTaxExact(revente,N);
       crd=(N*12+1<=301?(sch.crd[N*12+1]||0):0); netSale=(revente-pv)-crd; cf+=netSale; }
     cumCF+=cf; flows.push(cf);
-    rows.push({k,loyers,charges:flatCharges,deduct:deductK,credit:creditK,resultat:result,ir,ps:psy,impot,cfOp,cf});
+    rows.push({k,loyers:loyersK,charges:flatCharges,deduct:deductK,credit:creditK,resultat:result,ir,ps:psy,impot,cfOp,cf});
   }
   const dates=yearDates(N), tri=xirr(flows.map((v,i)=>({d:dates[i],v})));
   const r1=rows[0], interets=r1.deduct, rf=r1.resultat, totImp=r1.impot, net=rf-totImp;
@@ -1306,7 +1308,7 @@ function renderCMP(){
 
 /* ---- Revenus Fonciers ---- */
 function renderRF(){
-  const r=calcRF({valeur:num('rf_valeur'),loyerMensuel:num('rf_loyer'),taxe:num('rf_taxe'),
+  const r=calcRF({valeur:num('rf_valeur'),loyerMensuel:num('rf_loyer'),irl:num('rf_irl')/100,taxe:num('rf_taxe'),
     copro:num('rf_copro'),gestion:num('rf_gestion'),travaux:num('rf_travaux'),
     notaireRate:num('rf_notaire')/100,emprunte:num('rf_emprunt'),tauxCredit:num('rf_taux')/100,
     tauxAssur:num('rf_assur')/100,dureeCredit:num('rf_dureecredit'),detention:num('rf_detention'),
@@ -1327,7 +1329,7 @@ function renderRF(){
     avez réellement immobilisé « travaille » à ${pct(r.tri)} par an. On le compare au rendement d'autres placements
     (livret, assurance-vie, SCPI…) : si le TRI dépasse le coût du crédit et le taux sans risque,
     <b>l'effet de levier joue en votre faveur</b>.</p>
-    <p style="margin:0;color:#7a8a8d;font-size:.82rem">Hypothèses : loyers et charges supposés constants ; revenu foncier
+    <p style="margin:0;color:#7a8a8d;font-size:.82rem">Hypothèses : loyer indexé chaque année (IRL), charges supposées constantes ; revenu foncier
     positif imposé à votre TMI + 17,2 % de prélèvements sociaux ; un déficit foncier est imputé à votre TMI sur le revenu
     global (plafond 10 700 €/an, la part liée aux intérêts et l'excédent étant reportés sur les revenus fonciers) ;
     plus-value selon le régime des particuliers (abattements pour durée de détention + surtaxe). Outil pédagogique, ne
@@ -1593,7 +1595,7 @@ bind(['avl_prix','avl_surf','avl_notaire','avl_trav','avl_cnr','avl_pno','avl_in
 bind(['sis_prix','sis_surf','sis_loyer','sis_irl','sis_reval','sis_emp','sis_taux','sis_assur','sis_duree','sis_isbas','sis_ishaut','sis_flat','sis_amdur','sis_gest','sis_pnom2','sis_trav','sis_cnr','sis_infl','sis_gar','sis_fcrea','sis_fcompta','sis_isreduit','sis_taxe'],renderSIS);
 bind(['sir_prix','sir_surf','sir_loyer','sir_irl','sir_reval','sir_emp','sir_taux','sir_assur','sir_duree','sir_tmi','sir_csg','sir_crl','sir_gest','sir_pnom2','sir_trav','sir_cnr','sir_infl','sir_gar','sir_fcrea','sir_fcompta','sir_pvtravaux','sir_taxe'],renderSIR);
 bind(['cmp_prix','cmp_surf','cmp_loyer','cmp_irl','cmp_reval','cmp_emp','cmp_taux','cmp_assur','cmp_duree','cmp_gest','cmp_pnom2','cmp_trav','cmp_cnr','cmp_infl','cmp_gar','cmp_fcrea','cmp_fcompta','cmp_isbas','cmp_ishaut','cmp_flat','cmp_amdur','cmp_tmi','cmp_csg','cmp_crl','cmp_isreduit','cmp_pvtravaux','cmp_taxe'],renderCMP);
-bind(['rf_valeur','rf_loyer','rf_taxe','rf_copro','rf_gestion','rf_travaux','rf_notaire','rf_emprunt','rf_taux','rf_assur','rf_dureecredit','rf_detention','rf_reval','rf_tmi','rf_ps'],renderRF);
+bind(['rf_valeur','rf_loyer','rf_irl','rf_taxe','rf_copro','rf_gestion','rf_travaux','rf_notaire','rf_emprunt','rf_taux','rf_assur','rf_dureecredit','rf_detention','rf_reval','rf_tmi','rf_ps'],renderRF);
 bind(['pv_achat','pv_fraismode','pv_fraisreel','pv_travmode','pv_travreel','pv_duree','pv_vente','pv_fraisvente','pv_crd'],renderPV);
 (function(){var n=$('rfst-new'),c=$('rfst-cur');
   if(n&&c){function show(cur){n.classList.toggle('active',!cur);c.classList.toggle('active',cur);
@@ -1891,7 +1893,7 @@ renderAVL();renderSIS();renderSIR();renderRF();renderPV();renderLOC();renderCMP(
   }
   function logSimulation(uid){
     try{
-      var ids=['rf_valeur','rf_loyer','rf_taxe','rf_copro','rf_gestion','rf_travaux','rf_notaire','rf_emprunt','rf_taux','rf_assur','rf_dureecredit','rf_detention','rf_reval','rf_tmi','rf_ps'];
+      var ids=['rf_valeur','rf_loyer','rf_irl','rf_taxe','rf_copro','rf_gestion','rf_travaux','rf_notaire','rf_emprunt','rf_taux','rf_assur','rf_dureecredit','rf_detention','rf_reval','rf_tmi','rf_ps'];
       var params={}; ids.forEach(function(id){var e=el(id); if(e) params[id]=e.value;});
       var res={}; document.querySelectorAll('#rf-kpis .kpi').forEach(function(k){
         var l=k.querySelector('.l'), v=k.querySelector('.v'); if(l&&v) res[l.textContent.trim()]=v.textContent.trim();
