@@ -1829,10 +1829,11 @@ renderAVL();renderSIS();renderSIR();renderRF();renderPV();renderLOC();renderCMP(
      ============================================================ */
   var SUPABASE_URL = "https://cfdtwcwsqlvzgvaeyenv.supabase.co";
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmZHR3Y3dzcWx2emd2YWV5ZW52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjQ2ODksImV4cCI6MjA5NzQ0MDY4OX0.Ik1kheTJvSMdvUx8FIhwb-Z_ExKjYyctPexzxGGayO0";
-  // Validation/réinitialisation par e-mail. false = inscription instantanée sans
-  // e-mail (favorise la diffusion) ; le reset de mot de passe se fait par HEXA.
-  // Passez à true seulement si un SMTP est configuré dans Supabase.
-  var EMAIL_ENABLED = false;
+  // Réinitialisation autonome du mot de passe par e-mail (lien envoyé à l'agent).
+  // Nécessite un expéditeur SMTP fiable configuré dans Supabase (sinon l'e-mail
+  // intégré est limité à quelques envois/heure). L'inscription reste instantanée
+  // (indépendante de ce réglage tant que « Confirm email » est décoché).
+  var EMAIL_ENABLED = true;
   /* ============================================================ */
 
   // MODE LOCAL (sans Supabase) — utilisable immédiatement.
